@@ -1,4 +1,4 @@
-import { Rect, IText } from "fabric"
+import { Rect, IText, Point } from "fabric"
 import type { Canvas, FabricObject } from "fabric"
 import type { AppDispatch } from "../store"
 import type { PackState } from "../store/pack-slice"
@@ -136,9 +136,9 @@ export class CanvasBridge {
   // Frame hit-testing — returns which frame contains canvas point (x, y)
   // -------------------------------------------------------------------------
   getFrameAtPoint(x: number, y: number): { iconId: string; variant: string } | null {
+    const point = new Point(x, y)
     for (const [key, objs] of this.frameObjects) {
-      const { left = 0, top = 0, width = 0, height = 0 } = objs.rect
-      if (x >= left && x <= left + width && y >= top && y <= top + height) {
+      if (objs.rect.containsPoint(point)) {
         return fromKey(key)
       }
     }

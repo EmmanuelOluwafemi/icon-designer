@@ -13,7 +13,7 @@ const initialState: EditorState = {
   activeTool: "select",
   activeIconId: null,
   activeVariant: null,
-  strokeColor: "#000000",
+  strokeColor: "#ffffff",
   strokeWidth: 1.5,
   fillColor: "transparent",
 }

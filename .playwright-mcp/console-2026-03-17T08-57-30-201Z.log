@@ -1,0 +1,113 @@
+[  721359ms] [ERROR] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+%s%s https://react.dev/link/hydration-mismatch 
+
+  ...
+    <div role="presentation" onPointerEnter={function handlePointerEnterOrMove} ...>
+      <ScrollAreaViewport data-slot="scroll-are..." className="size-full ...">
+        <div role="presentation" data-id="base-ui-_R..." tabIndex={-1} className="size-full ..." style={{overflow:"..."}} ...>
+          <div className="px-1 pb-2">
+            <DndContext sensors={[...]} collisionDetection={function closestCenter} onDragEnd={function handleDragEnd}>
+              <SortableContext items={[...]} strategy={function verticalListSortingStrategy}>
+                <SortableIconRow icon={{id:"home", ...}} variants={[...]} isActive={false} onSelect={function onSelect} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{...}} className="group roun...">
+                    <div className="flex curso..." onClick={function onClick}>
+                      <button
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-3"
+                        onPointerDown={function useSyntheticListeners.useMemo}
+                        className="mt-0.5 cursor-grab p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 ac..."
+                        onClick={function onClick}
+                        aria-label="Drag to reorder"
+                      >
++                       ⠿
+                      ...
+                <SortableIconRow icon={{id:"search", ...}} variants={[...]} isActive={false} onSelect={function onSelect} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{...}} className="group roun...">
+                    <div className="flex curso..." onClick={function onClick}>
+                      <button
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-3"
+                        onPointerDown={function useSyntheticListeners.useMemo}
+                        className="mt-0.5 cursor-grab p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 ac..."
+                        onClick={function onClick}
+                        aria-label="Drag to reorder"
+                      >
++                       ⠿
+                      ...
+                <SortableIconRow icon={{id:"settings", ...}} variants={[...]} isActive={false} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{...}} className="group roun...">
+                    <div className="flex curso..." onClick={function onClick}>
+                      <button
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-3"
+                        onPointerDown={function useSyntheticListeners.useMemo}
+                        className="mt-0.5 cursor-grab p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 ac..."
+                        onClick={function onClick}
+                        aria-label="Drag to reorder"
+                      >
++                       ⠿
+                      ...
+                <SortableIconRow icon={{id:"bell", ...}} variants={[...]} isActive={false} onSelect={function onSelect} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{...}} className="group roun...">
+                    <div className="flex curso..." onClick={function onClick}>
+                      <button
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-3"
+                        onPointerDown={function useSyntheticListeners.useMemo}
+                        className="mt-0.5 cursor-grab p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 ac..."
+                        onClick={function onClick}
+                        aria-label="Drag to reorder"
+                      >
++                       ⠿
+                      ...
+                <SortableIconRow icon={{id:"user", ...}} variants={[...]} isActive={false} onSelect={function onSelect} ...>
+                  <div ref={function useCombinedRefs.useMemo} style={{...}} className="group roun...">
+                    <div className="flex curso..." onClick={function onClick}>
+                      <button
+                        role="button"
+                        tabIndex={0}
+                        aria-disabled={false}
+                        aria-pressed={undefined}
+                        aria-roledescription="sortable"
++                       aria-describedby="DndDescribedBy-0"
+-                       aria-describedby="DndDescribedBy-3"
+                        onPointerDown={function useSyntheticListeners.useMemo}
+                        className="mt-0.5 cursor-grab p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 ac..."
+                        onClick={function onClick}
+                        aria-label="Drag to reorder"
+                      >
++                       ⠿
+                      ...
+              ...
+              ...
+      ...
+ @ http://localhost:3000/_next/static/chunks/979b6_next_dist_2a67324b._.js:3127

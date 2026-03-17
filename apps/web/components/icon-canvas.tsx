@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useSelector, useDispatch } from "react-redux"
 import { Canvas, Point } from "fabric"
 import type { RootState, AppDispatch } from "../store"
@@ -29,6 +29,7 @@ export function IconCanvas() {
   const prevStateRef = useRef<PackState | null>(null)
   const isPanning = useRef(false)
   const lastPan = useRef({ x: 0, y: 0 })
+  const [canvasReady, setCanvasReady] = useState(false)
   const { activeIconId, activeVariant, activeTool, strokeColor, strokeWidth, fillColor } = useSelector((s: RootState) => s.editor)
   const activeToolRef = useRef(activeTool)
 
@@ -37,8 +38,8 @@ export function IconCanvas() {
 
   useEffect(() => { activeToolRef.current = activeTool }, [activeTool])
 
-  useDrawTool(fabricRef, bridgeRef, activeTool, strokeColor, strokeWidth, fillColor)
-  usePenTool(fabricRef, bridgeRef, activeTool, { strokeColor, strokeWidth, fillColor })
+  useDrawTool(fabricRef, bridgeRef, activeTool, strokeColor, strokeWidth, fillColor, canvasReady)
+  usePenTool(fabricRef, bridgeRef, activeTool, { strokeColor, strokeWidth, fillColor }, canvasReady)
   useCanvasShortcuts(fabricRef, dispatch)
 
   // Mount Fabric canvas + CanvasBridge once
@@ -52,6 +53,9 @@ export function IconCanvas() {
 
     const bridge = new CanvasBridge(fc, dispatch)
     bridgeRef.current = bridge
+    // Signal to draw hooks that fabricRef/bridgeRef are populated
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCanvasReady(true)
 
     // Click on a frame rect to set active icon/variant
     fc.on("mouse:down:before", (e) => {

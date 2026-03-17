@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react"
 import { useSelector, useDispatch } from "react-redux"
-import { Rect, Ellipse, Line } from "fabric"
-import type { Canvas, FabricObject } from "fabric"
+import { Rect, Ellipse } from "fabric"
+import type { Canvas, FabricObject, Point } from "fabric"
 import type { RootState, AppDispatch } from "../store"
 import type { EditorState } from "../store/editor-slice"
 import { setActiveIconId, setActiveVariant } from "../store/editor-slice"
@@ -28,7 +28,8 @@ function createShape(tool: DrawTool, x: number, y: number, props: DrawProps): Fa
   }
   if (tool === "rect") return new Rect({ ...base, width: 0, height: 0, rx: 0, ry: 0 })
   if (tool === "circle") return new Ellipse({ ...base, rx: 0, ry: 0 })
-  return new Line([x, y, x, y], { ...base, left: x, top: y })
+  // line — use a thin rect as a line substitute (FabricJS Line is deprecated in v7)
+  return new Rect({ ...base, width: 0, height: props.strokeWidth, rx: 0, ry: 0 })
 }
 
 function updateShape(
@@ -50,8 +51,8 @@ function updateShape(
     const ellipse = shape as Ellipse
     ellipse.set({ left, top, rx: w / 2, ry: h / 2 })
   } else if (tool === "line") {
-    const line = shape as Line
-    line.set({ x1: startX, y1: startY, x2: currX, y2: currY })
+    // line is rendered as a 1-height rect along the drag direction
+    shape.set({ left, top, width: w || 1, height: h || 1 })
   }
   shape.setCoords()
 }
@@ -62,13 +63,14 @@ export function useDrawTool(
   activeTool: EditorState["activeTool"],
   strokeColor: string,
   strokeWidth: number,
-  fillColor: string
+  fillColor: string,
+  canvasReady: boolean
 ) {
   const dispatch = useDispatch<AppDispatch>()
   const activeIconId = useSelector((s: RootState) => s.editor.activeIconId)
   const activeVariant = useSelector((s: RootState) => s.editor.activeVariant)
 
-  // Refs to avoid stale closures inside event handlers
+  // Refs to avoid stale closures inside Fabric event handlers
   const activeIconIdRef = useRef(activeIconId)
   const activeVariantRef = useRef(activeVariant)
   useEffect(() => { activeIconIdRef.current = activeIconId }, [activeIconId])
@@ -97,16 +99,15 @@ export function useDrawTool(
     const tool = activeTool as DrawTool
     const props: DrawProps = { strokeColor, strokeWidth, fillColor }
 
-    function onMouseDown(e: { pointer?: { x: number; y: number } }) {
-      const p = e.pointer
+    // Fabric v7 events use `scenePoint` (renamed from `pointer` in v6)
+    function onMouseDown(e: { scenePoint?: Point; viewportPoint?: Point }) {
+      const p = e.scenePoint
       if (!p || !fc) return
 
-      // Identify which frame this click lands in
       const bridge = bridgeRef.current
       const frame = bridge?.getFrameAtPoint(p.x, p.y) ?? null
       if (!frame) return // don't draw outside any frame
 
-      // Activate the frame if different from current
       if (
         frame.iconId !== activeIconIdRef.current ||
         frame.variant !== activeVariantRef.current
@@ -123,9 +124,9 @@ export function useDrawTool(
       fc.add(shape)
     }
 
-    function onMouseMove(e: { pointer?: { x: number; y: number } }) {
+    function onMouseMove(e: { scenePoint?: Point }) {
       if (!drawing.current || !activeShape.current || !fc) return
-      const p = e.pointer
+      const p = e.scenePoint
       if (!p) return
       updateShape(tool, activeShape.current, startPoint.current.x, startPoint.current.y, p.x, p.y)
       fc.renderAll()
@@ -141,7 +142,6 @@ export function useDrawTool(
       if (w < 2 && h < 2) {
         fc.remove(obj)
       } else {
-        // Register the shape with the frame — applies clipPath and schedules SVG sync
         const bridge = bridgeRef.current
         const frame = currentFrame.current
         if (bridge && frame) {
@@ -163,5 +163,5 @@ export function useDrawTool(
       fc.off("mouse:move", onMouseMove as never)
       fc.off("mouse:up", onMouseUp)
     }
-  }, [fabricRef, bridgeRef, activeTool, strokeColor, strokeWidth, fillColor, dispatch])
+  }, [fabricRef, bridgeRef, activeTool, strokeColor, strokeWidth, fillColor, dispatch, canvasReady])
 }

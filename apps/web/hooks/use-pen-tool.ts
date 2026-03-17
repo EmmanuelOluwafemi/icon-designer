@@ -7,6 +7,7 @@ import type { Canvas, FabricObject } from "fabric"
 import type { RootState, AppDispatch } from "../store"
 import type { EditorState } from "../store/editor-slice"
 import { setActiveIconId, setActiveVariant } from "../store/editor-slice"
+import type { Point } from "fabric"
 import { buildPathString, closedPathString, moveAnchor, removeAnchor } from "../lib/path-builder"
 import type { AnchorPoint } from "../lib/path-builder"
 import type { CanvasBridge } from "../lib/canvas-bridge"
@@ -49,7 +50,8 @@ export function usePenTool(
   fabricRef: React.RefObject<Canvas | null>,
   bridgeRef: React.RefObject<CanvasBridge | null>,
   activeTool: EditorState["activeTool"],
-  props: PenProps
+  props: PenProps,
+  canvasReady: boolean
 ) {
   const dispatch = useDispatch<AppDispatch>()
   const activeIconId = useSelector((s: RootState) => s.editor.activeIconId)
@@ -141,8 +143,8 @@ export function usePenTool(
 
     // --- event handlers ---
 
-    function onMouseDown(e: { pointer?: { x: number; y: number }; target?: FabricObject | null }) {
-      const p = e.pointer
+    function onMouseDown(e: { scenePoint?: Point; target?: FabricObject | null }) {
+      const p = e.scenePoint
       if (!p || !fc) return
 
       // Clicked on an existing anchor circle — start moving it
@@ -180,8 +182,8 @@ export function usePenTool(
       refreshPreview(anchors.current)
     }
 
-    function onMouseMove(e: { pointer?: { x: number; y: number } }) {
-      const p = e.pointer
+    function onMouseMove(e: { scenePoint?: Point }) {
+      const p = e.scenePoint
       if (!p || !fc) return
 
       if (isDragging.current) return // let Fabric handle anchor drag
@@ -249,5 +251,5 @@ export function usePenTool(
       window.removeEventListener("keydown", onKeyDown)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fabricRef, activeTool, props.strokeColor, props.strokeWidth, props.fillColor])
+  }, [fabricRef, activeTool, props.strokeColor, props.strokeWidth, props.fillColor, canvasReady])
 }
