@@ -1,11 +1,13 @@
 import { Rect, IText } from "fabric"
-import type { Canvas } from "fabric"
+import type { Canvas, FabricObject } from "fabric"
 import type { AppDispatch } from "../store"
 import type { PackState } from "../store/pack-slice"
+import { updateIconFile } from "../store/pack-slice"
 import { autoGridLayout } from "./auto-grid-layout"
 import type { Frame, GridConfig } from "./auto-grid-layout"
 
 const CANVAS_PADDING = 48
+const SERIALIZE_DEBOUNCE_MS = 500
 
 const COLORS = {
   frameFill: "#18181b",
@@ -33,6 +35,10 @@ function applyGridSize(config: GridConfig, state: PackState): GridConfig {
 
 interface FrameObjects {
   rect: Rect
+  /** Absolute-positioned clip rect applied to each drawn shape in this frame */
+  clipRect: Rect
+  /** Drawn shapes (Rect, Ellipse, Line, Path) owned by this frame */
+  shapes: FabricObject[]
   plus?: IText
   label?: IText
 }
@@ -42,6 +48,7 @@ export class CanvasBridge {
   private headerObjects: IText[] = []
   private dirty = new Set<FrameKey>()
   private isUpdatingFromCanvas = false
+  private serializeTimers = new Map<FrameKey, ReturnType<typeof setTimeout>>()
 
   constructor(
     private canvas: Canvas,
@@ -60,6 +67,8 @@ export class CanvasBridge {
   // Full load — clear canvas and rebuild from state
   // -------------------------------------------------------------------------
   loadFromState(state: PackState, config: GridConfig): void {
+    this.serializeTimers.forEach((t) => clearTimeout(t))
+    this.serializeTimers.clear()
     this.canvas.clear()
     this.frameObjects.clear()
     this.headerObjects = []
@@ -124,13 +133,69 @@ export class CanvasBridge {
   }
 
   // -------------------------------------------------------------------------
-  // SVG export
+  // Frame hit-testing — returns which frame contains canvas point (x, y)
+  // -------------------------------------------------------------------------
+  getFrameAtPoint(x: number, y: number): { iconId: string; variant: string } | null {
+    for (const [key, objs] of this.frameObjects) {
+      const { left = 0, top = 0, width = 0, height = 0 } = objs.rect
+      if (x >= left && x <= left + width && y >= top && y <= top + height) {
+        return fromKey(key)
+      }
+    }
+    return null
+  }
+
+  // -------------------------------------------------------------------------
+  // Add a drawn shape to a frame — applies clip rect, registers ownership
+  // -------------------------------------------------------------------------
+  addShapeToFrame(iconId: string, variant: string, shape: FabricObject): void {
+    const objs = this.frameObjects.get(toKey(iconId, variant))
+    if (!objs) return
+    ;(shape as unknown as { clipPath: Rect }).clipPath = objs.clipRect
+    objs.shapes.push(shape)
+    this.dirty.add(toKey(iconId, variant))
+    this.scheduleSerialize(iconId, variant)
+  }
+
+  // -------------------------------------------------------------------------
+  // SVG serialization — frame shapes → SVG string with frame-local viewBox
+  // -------------------------------------------------------------------------
+  serializeFrameSVG(iconId: string, variant: string): string {
+    const objs = this.frameObjects.get(toKey(iconId, variant))
+    if (!objs || objs.shapes.length === 0) return ""
+
+    const { left: fl = 0, top: ft = 0, width: fw = 48, height: fh = 48 } = objs.rect
+
+    const shapeSVGs = objs.shapes
+      .map((s) => {
+        try {
+          return (s as unknown as { toSVG: () => string }).toSVG()
+        } catch {
+          return ""
+        }
+      })
+      .filter(Boolean)
+      .join("\n")
+
+    return [
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${fw} ${fh}">`,
+      `  <g transform="translate(${-fl},${-ft})">`,
+      shapeSVGs,
+      `  </g>`,
+      `</svg>`,
+    ].join("\n")
+  }
+
+  // -------------------------------------------------------------------------
+  // Legacy SVG export (used externally — delegates to serializeFrameSVG)
   // -------------------------------------------------------------------------
   getIconSVG(iconId: string, variant: string): string | null {
     const objs = this.frameObjects.get(toKey(iconId, variant))
     if (!objs) return null
-    // Placeholder — full SVG path export lands in issue #9
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${objs.rect.width} ${objs.rect.height}"></svg>`
+    return (
+      this.serializeFrameSVG(iconId, variant) ||
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${objs.rect.width ?? 48} ${objs.rect.height ?? 48}"></svg>`
+    )
   }
 
   // -------------------------------------------------------------------------
@@ -145,12 +210,29 @@ export class CanvasBridge {
   }
 
   dispose(): void {
+    this.serializeTimers.forEach((t) => clearTimeout(t))
     this.canvas.dispose()
   }
 
   // -------------------------------------------------------------------------
   // Private helpers
   // -------------------------------------------------------------------------
+  private scheduleSerialize(iconId: string, variant: string): void {
+    const key = toKey(iconId, variant)
+    const existing = this.serializeTimers.get(key)
+    if (existing) clearTimeout(existing)
+
+    const timer = setTimeout(() => {
+      const svg = this.serializeFrameSVG(iconId, variant)
+      if (svg) {
+        this.dispatch(updateIconFile({ id: iconId, variant, svg }))
+      }
+      this.serializeTimers.delete(key)
+    }, SERIALIZE_DEBOUNCE_MS)
+
+    this.serializeTimers.set(key, timer)
+  }
+
   private buildAll(state: PackState, cfg: GridConfig): void {
     const { icons, variants, gridSize } = state
     const cellSize = gridSize + cfg.padding
@@ -204,7 +286,16 @@ export class CanvasBridge {
     })
     this.canvas.add(rect)
 
-    const frameObjs: FrameObjects = { rect }
+    // Clip rect: absolute-positioned, not added to canvas, used as clipPath on drawn shapes
+    const clipRect = new Rect({
+      left: CANVAS_PADDING + x,
+      top: CANVAS_PADDING + y,
+      width: size,
+      height: size,
+      absolutePositioned: true,
+    })
+
+    const frameObjs: FrameObjects = { rect, clipRect, shapes: [] }
 
     if (isEmpty) {
       const plus = new IText("+", {
@@ -249,6 +340,7 @@ export class CanvasBridge {
       this.canvas.remove(objs.rect)
       if (objs.plus) this.canvas.remove(objs.plus)
       if (objs.label) this.canvas.remove(objs.label)
+      objs.shapes.forEach((s) => this.canvas.remove(s))
       this.frameObjects.delete(key)
       this.dirty.delete(key)
     }
@@ -266,6 +358,7 @@ export class CanvasBridge {
       const objs = this.frameObjects.get(toKey(iconId, variant))
       if (!objs) continue
       objs.rect.set({ left: CANVAS_PADDING + x, top: CANVAS_PADDING + y })
+      objs.clipRect.set({ left: CANVAS_PADDING + x, top: CANVAS_PADDING + y })
       if (objs.plus) {
         objs.plus.set({ left: CANVAS_PADDING + x + size / 2, top: CANVAS_PADDING + y + size / 2 })
       }

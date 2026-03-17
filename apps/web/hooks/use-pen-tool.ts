@@ -1,11 +1,15 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { Path, Circle, Group } from "fabric"
+import { useSelector, useDispatch } from "react-redux"
+import { Path, Circle } from "fabric"
 import type { Canvas, FabricObject } from "fabric"
+import type { RootState, AppDispatch } from "../store"
 import type { EditorState } from "../store/editor-slice"
-import { buildPathString, closedPathString, parsePathAnchors, moveAnchor, removeAnchor } from "../lib/path-builder"
+import { setActiveIconId, setActiveVariant } from "../store/editor-slice"
+import { buildPathString, closedPathString, moveAnchor, removeAnchor } from "../lib/path-builder"
 import type { AnchorPoint } from "../lib/path-builder"
+import type { CanvasBridge } from "../lib/canvas-bridge"
 
 interface PenProps {
   strokeColor: string
@@ -43,14 +47,24 @@ function makeAnchorCircle(x: number, y: number, index: number): Circle {
 
 export function usePenTool(
   fabricRef: React.RefObject<Canvas | null>,
+  bridgeRef: React.RefObject<CanvasBridge | null>,
   activeTool: EditorState["activeTool"],
   props: PenProps
 ) {
+  const dispatch = useDispatch<AppDispatch>()
+  const activeIconId = useSelector((s: RootState) => s.editor.activeIconId)
+  const activeVariant = useSelector((s: RootState) => s.editor.activeVariant)
+
+  const activeIconIdRef = useRef(activeIconId)
+  const activeVariantRef = useRef(activeVariant)
+  useEffect(() => { activeIconIdRef.current = activeIconId }, [activeIconId])
+  useEffect(() => { activeVariantRef.current = activeVariant }, [activeVariant])
+
   const anchors = useRef<AnchorPoint[]>([])
   const previewPath = useRef<Path | null>(null)
   const anchorCircles = useRef<Circle[]>([])
   const isDragging = useRef(false)
-  const dragStart = useRef({ x: 0, y: 0 })
+  const currentFrame = useRef<{ iconId: string; variant: string } | null>(null)
 
   useEffect(() => {
     const fc = fabricRef.current
@@ -101,10 +115,16 @@ export function usePenTool(
         stroke: props.strokeColor,
         strokeWidth: props.strokeWidth,
         fill: getPreviewFill(),
-        selectable: true,
-        evented: true,
+        selectable: false,
+        evented: false,
       })
       fc!.add(finalPath)
+      // Register with the frame for clipping and SVG sync
+      const bridge = bridgeRef.current
+      const frame = currentFrame.current
+      if (bridge && frame) {
+        bridge.addShapeToFrame(frame.iconId, frame.variant, finalPath)
+      }
       clearPen()
     }
 
@@ -129,11 +149,26 @@ export function usePenTool(
       const target = e.target as ({ data?: { tag?: string; index?: number } } & FabricObject) | null
       if (target?.data?.tag === ANCHOR_TAG) {
         isDragging.current = true
-        dragStart.current = { x: p.x, y: p.y }
         return
       }
 
       const pts = anchors.current
+
+      // First click: detect which frame we're drawing in
+      if (pts.length === 0) {
+        const bridge = bridgeRef.current
+        const frame = bridge?.getFrameAtPoint(p.x, p.y) ?? null
+        if (!frame) return // don't start outside a frame
+        if (
+          frame.iconId !== activeIconIdRef.current ||
+          frame.variant !== activeVariantRef.current
+        ) {
+          dispatch(setActiveIconId(frame.iconId))
+          dispatch(setActiveVariant(frame.variant))
+        }
+        currentFrame.current = frame
+      }
+
       // Close the path if clicking near the first anchor
       if (pts.length >= 2 && dist(p, pts[0]!) < CLOSE_THRESHOLD) {
         commitPath()

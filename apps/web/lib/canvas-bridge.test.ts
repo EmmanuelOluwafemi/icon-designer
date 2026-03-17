@@ -6,6 +6,7 @@ vi.mock("fabric", () => {
     type = "rect"
     on = vi.fn()
     set = vi.fn((patch: object) => Object.assign(this, patch))
+    toSVG = vi.fn(() => `<rect/>`)
     constructor(opts: object) { Object.assign(this, opts) }
   }
   class IText {
@@ -209,5 +210,65 @@ describe("CanvasBridge", () => {
 
     bridge.markClean("home", "outline")
     expect(bridge.isDirty("home", "outline")).toBe(false)
+  })
+
+  // 8. getFrameAtPoint
+  it("getFrameAtPoint returns the frame whose rect contains the point", () => {
+    bridge.loadFromState(makeState(), config)
+    // home×outline rect is at CANVAS_PADDING + (0, headerHeight) = (48, 48+56)
+    const result = bridge.getFrameAtPoint(50, 120)
+    expect(result).not.toBeNull()
+    expect(result?.iconId).toBe("home")
+  })
+
+  it("getFrameAtPoint returns null for a point outside all frames", () => {
+    bridge.loadFromState(makeState(), config)
+    expect(bridge.getFrameAtPoint(0, 0)).toBeNull()
+  })
+
+  // 9. addShapeToFrame
+  it("addShapeToFrame sets clipPath on the shape and marks the frame dirty", () => {
+    bridge.loadFromState(makeState(), config)
+    const shape = { clipPath: null, type: "rect", toSVG: vi.fn(() => "<rect/>") }
+    bridge.addShapeToFrame("home", "outline", shape as never)
+    expect(shape.clipPath).not.toBeNull()
+    expect(bridge.isDirty("home", "outline")).toBe(true)
+  })
+
+  it("addShapeToFrame is a no-op for an unknown frame", () => {
+    bridge.loadFromState(makeState(), config)
+    const shape = { clipPath: null }
+    bridge.addShapeToFrame("nonexistent", "outline", shape as never)
+    expect(shape.clipPath).toBeNull()
+  })
+
+  // 10. serializeFrameSVG
+  it("serializeFrameSVG returns empty string when no shapes have been drawn", () => {
+    bridge.loadFromState(makeState(), config)
+    expect(bridge.serializeFrameSVG("home", "outline")).toBe("")
+  })
+
+  it("serializeFrameSVG returns an SVG string after shapes are added", () => {
+    bridge.loadFromState(makeState(), config)
+    const shape = { clipPath: null, type: "rect", toSVG: vi.fn(() => "<rect/>") }
+    bridge.addShapeToFrame("home", "outline", shape as never)
+    const svg = bridge.serializeFrameSVG("home", "outline")
+    expect(svg).toContain("<svg")
+    expect(svg).toContain("<rect/>")
+  })
+
+  // 11. removeIconFrames removes drawn shapes too
+  it("sync removes drawn shapes belonging to a removed icon", () => {
+    const prev = makeState()
+    bridge.loadFromState(prev, config)
+
+    const shape = { clipPath: null, type: "rect", toSVG: vi.fn(() => "<rect/>") }
+    bridge.addShapeToFrame("home", "outline", shape as never)
+    canvas.add(shape as never)
+
+    const next = makeState({ icons: [prev.icons[1]!] }) // remove "home"
+    bridge.sync(prev, next, config)
+
+    expect(canvas.remove).toHaveBeenCalledWith(shape)
   })
 })

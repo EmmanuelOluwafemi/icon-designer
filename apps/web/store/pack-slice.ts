@@ -55,6 +55,12 @@ const packSlice = createSlice({
       const icon = state.icons.find((i) => i.id === id)
       if (icon) Object.assign(icon, patch)
     },
+    updateIconFile(state, action: { payload: { id: string; variant: string; svg: string } }) {
+      const icon = state.icons.find((i) => i.id === action.payload.id)
+      if (icon) {
+        icon.files[action.payload.variant] = action.payload.svg
+      }
+    },
     duplicateIcon(state, action: { payload: string }) {
       const source = state.icons.find((i) => i.id === action.payload)
       if (!source) return
@@ -70,6 +76,6 @@ const packSlice = createSlice({
   },
 })
 
-export const { loadPack, addIcon, removeIcon, renameIcon, reorderIcons, duplicateIcon, updateIconMeta } = packSlice.actions
+export const { loadPack, addIcon, removeIcon, renameIcon, reorderIcons, duplicateIcon, updateIconMeta, updateIconFile } = packSlice.actions
 
 export default packSlice.reducer

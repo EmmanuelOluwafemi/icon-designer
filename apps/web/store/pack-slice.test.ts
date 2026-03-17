@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { configureStore } from "@reduxjs/toolkit"
-import packReducer, { loadPack, addIcon, removeIcon, renameIcon, reorderIcons, duplicateIcon, updateIconMeta } from "./pack-slice"
+import packReducer, { loadPack, addIcon, removeIcon, renameIcon, reorderIcons, duplicateIcon, updateIconMeta, updateIconFile } from "./pack-slice"
 import type { Icon } from "./pack-slice"
 
 function makeStore() {
@@ -136,5 +136,26 @@ describe("packSlice", () => {
     store.dispatch(addIcon(testIcon))
     store.dispatch(duplicateIcon("unknown"))
     expect(store.getState().pack.icons).toHaveLength(1)
+  })
+
+  it("updateIconFile sets the SVG string for a given variant", () => {
+    const store = makeStore()
+    store.dispatch(addIcon(testIcon))
+    store.dispatch(updateIconFile({ id: "home", variant: "filled", svg: "<svg/>" }))
+    expect(store.getState().pack.icons[0]?.files["filled"]).toBe("<svg/>")
+  })
+
+  it("updateIconFile overwrites an existing variant SVG", () => {
+    const store = makeStore()
+    store.dispatch(addIcon(testIcon))
+    store.dispatch(updateIconFile({ id: "home", variant: "outline", svg: "<svg>new</svg>" }))
+    expect(store.getState().pack.icons[0]?.files["outline"]).toBe("<svg>new</svg>")
+  })
+
+  it("updateIconFile is a no-op for unknown id", () => {
+    const store = makeStore()
+    store.dispatch(addIcon(testIcon))
+    store.dispatch(updateIconFile({ id: "unknown", variant: "outline", svg: "<svg/>" }))
+    expect(store.getState().pack.icons[0]?.files["outline"]).toBe("home.svg")
   })
 })

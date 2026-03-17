@@ -29,13 +29,16 @@ export function IconCanvas() {
   const prevStateRef = useRef<PackState | null>(null)
   const isPanning = useRef(false)
   const lastPan = useRef({ x: 0, y: 0 })
+  const { activeIconId, activeVariant, activeTool, strokeColor, strokeWidth, fillColor } = useSelector((s: RootState) => s.editor)
+  const activeToolRef = useRef(activeTool)
 
   const dispatch = useDispatch<AppDispatch>()
   const packState = useSelector((s: RootState) => s.pack)
-  const { activeIconId, activeVariant, activeTool, strokeColor, strokeWidth, fillColor } = useSelector((s: RootState) => s.editor)
 
-  useDrawTool(fabricRef, activeTool, strokeColor, strokeWidth, fillColor)
-  usePenTool(fabricRef, activeTool, { strokeColor, strokeWidth, fillColor })
+  useEffect(() => { activeToolRef.current = activeTool }, [activeTool])
+
+  useDrawTool(fabricRef, bridgeRef, activeTool, strokeColor, strokeWidth, fillColor)
+  usePenTool(fabricRef, bridgeRef, activeTool, { strokeColor, strokeWidth, fillColor })
   useCanvasShortcuts(fabricRef, dispatch)
 
   // Mount Fabric canvas + CanvasBridge once
@@ -59,9 +62,9 @@ export function IconCanvas() {
       }
     })
 
-    // Pan on empty canvas
+    // Pan on empty canvas — only when select tool is active
     fc.on("mouse:down", (e) => {
-      if (!e.target) {
+      if (!e.target && activeToolRef.current === "select") {
         isPanning.current = true
         const evt = e.e as MouseEvent
         lastPan.current = { x: evt.clientX, y: evt.clientY }
@@ -132,7 +135,7 @@ export function IconCanvas() {
   }, [activeIconId, activeVariant])
 
   return (
-    <div ref={containerRef} className="relative h-full w-full overflow-hidden cursor-grab active:cursor-grabbing">
+    <div ref={containerRef} className={`relative h-full w-full overflow-hidden ${activeTool === "select" ? "cursor-grab active:cursor-grabbing" : "cursor-crosshair"}`}>
       <canvas ref={canvasElRef} />
     </div>
   )
