@@ -10,6 +10,7 @@ import { setActiveIconId, setActiveVariant } from "../store/editor-slice"
 import type { PackState } from "../store/pack-slice"
 import { useDrawTool } from "../hooks/use-draw-tool"
 import { useCanvasShortcuts } from "../hooks/use-canvas-shortcuts"
+import { usePenTool } from "../hooks/use-pen-tool"
 
 const GRID_CONFIG: GridConfig = {
   gridSize: 48,
@@ -34,6 +35,7 @@ export function IconCanvas() {
   const { activeIconId, activeVariant, activeTool, strokeColor, strokeWidth, fillColor } = useSelector((s: RootState) => s.editor)
 
   useDrawTool(fabricRef, activeTool, strokeColor, strokeWidth, fillColor)
+  usePenTool(fabricRef, activeTool, { strokeColor, strokeWidth, fillColor })
   useCanvasShortcuts(fabricRef, dispatch)
 
   // Mount Fabric canvas + CanvasBridge once
