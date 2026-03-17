@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { configureStore } from "@reduxjs/toolkit"
-import editorReducer, { setActiveIconId, setActiveVariant, setActiveTool } from "./editor-slice"
+import editorReducer, { setActiveIconId, setActiveVariant, setActiveTool, setStrokeColor, setStrokeWidth, setFillColor } from "./editor-slice"
 
 function makeStore() {
   return configureStore({ reducer: { editor: editorReducer } })
@@ -13,6 +13,9 @@ describe("editorSlice", () => {
       activeTool: "select",
       activeIconId: null,
       activeVariant: null,
+      strokeColor: "#000000",
+      strokeWidth: 1.5,
+      fillColor: "transparent",
     })
   })
 
@@ -44,7 +47,25 @@ describe("editorSlice", () => {
 
   it("setActiveTool changes the active tool", () => {
     const store = makeStore()
-    store.dispatch(setActiveTool("pen"))
-    expect(store.getState().editor.activeTool).toBe("pen")
+    store.dispatch(setActiveTool("rect"))
+    expect(store.getState().editor.activeTool).toBe("rect")
+  })
+
+  it("setStrokeColor updates stroke color", () => {
+    const store = makeStore()
+    store.dispatch(setStrokeColor("#ff0000"))
+    expect(store.getState().editor.strokeColor).toBe("#ff0000")
+  })
+
+  it("setStrokeWidth updates stroke width", () => {
+    const store = makeStore()
+    store.dispatch(setStrokeWidth(3))
+    expect(store.getState().editor.strokeWidth).toBe(3)
+  })
+
+  it("setFillColor updates fill color", () => {
+    const store = makeStore()
+    store.dispatch(setFillColor("#0000ff"))
+    expect(store.getState().editor.fillColor).toBe("#0000ff")
   })
 })

@@ -1,6 +1,7 @@
 import { PackPrompt } from "./pack-prompt"
 import { IconCanvas } from "./icon-canvas"
 import { IconSidebar } from "./icon-sidebar"
+import { ToolBar } from "./tool-bar"
 
 export function EditorLayout() {
   return (
@@ -11,8 +12,7 @@ export function EditorLayout() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <nav role="toolbar" aria-label="Tools" className="flex w-12 shrink-0 flex-col items-center gap-1 border-r py-2">
-        </nav>
+        <ToolBar />
 
         <aside role="complementary" aria-label="Icons" className="flex w-60 shrink-0 flex-col border-r">
           <IconSidebar />

@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from "react-redux"
 import type { RootState, AppDispatch } from "@/store"
 import { loadPack } from "@/store/pack-slice"
 import { FileSystemService } from "@/services/file-system-service"
+import type { PackManifest } from "@/services/file-system-service"
 import { isBrowserSupported } from "@/lib/browser-support"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -16,12 +17,20 @@ import {
 } from "@workspace/ui/components/dialog"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
+import { ImportReviewDialog } from "./import-review-dialog"
+
+type ImportState = {
+  manifest: PackManifest
+  unrecognised: string[]
+  service: FileSystemService
+} | null
 
 export function PackPrompt() {
   const isLoaded = useSelector((s: RootState) => s.pack.isLoaded)
   const dispatch = useDispatch<AppDispatch>()
   const [newPackName, setNewPackName] = useState("")
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [importState, setImportState] = useState<ImportState>(null)
 
   if (isLoaded) return null
 
@@ -40,24 +49,45 @@ export function PackPrompt() {
   }
 
   async function handleOpen() {
-    const dirHandle = await window.showDirectoryPicker()
-    const service = await FileSystemService.openPack(dirHandle)
-    const { name, gridSize, variants, icons } = service.getManifest()
-    dispatch(loadPack({ name, gridSize, variants, icons }))
+    try {
+      const dirHandle = await window.showDirectoryPicker()
+      try {
+        // Try opening as an existing pack
+        const service = await FileSystemService.openPack(dirHandle)
+        const { name, gridSize, variants, icons } = service.getManifest()
+        dispatch(loadPack({ name, gridSize, variants, icons }))
+      } catch {
+        // No manifest — trigger import flow
+        const { service, unrecognised } = await FileSystemService.importFolder(dirHandle)
+        setImportState({ manifest: service.getManifest(), unrecognised, service })
+      }
+    } catch {
+      // User cancelled picker — do nothing
+    }
   }
 
   async function handleCreate() {
     const name = newPackName.trim()
     if (!name) return
-    const dirHandle = await window.showDirectoryPicker({ mode: "readwrite" })
-    const service = await FileSystemService.createPack(dirHandle, name, 24)
-    const manifest = service.getManifest()
-    dispatch(loadPack({ name: manifest.name, gridSize: manifest.gridSize, variants: manifest.variants, icons: manifest.icons }))
+    try {
+      const dirHandle = await window.showDirectoryPicker({ mode: "readwrite" })
+      const service = await FileSystemService.createPack(dirHandle, name, 24)
+      const manifest = service.getManifest()
+      dispatch(loadPack({ name: manifest.name, gridSize: manifest.gridSize, variants: manifest.variants, icons: manifest.icons }))
+    } catch {
+      // User cancelled picker — do nothing
+    }
   }
 
-  function handleOpenCreateDialog() {
-    setNewPackName("")
-    setShowCreateDialog(true)
+  if (importState) {
+    return (
+      <ImportReviewDialog
+        manifest={importState.manifest}
+        unrecognised={importState.unrecognised}
+        onConfirm={() => setImportState(null)}
+        onCancel={() => setImportState(null)}
+      />
+    )
   }
 
   return (
@@ -68,7 +98,9 @@ export function PackPrompt() {
           <p className="text-sm text-muted-foreground">Open an existing icon pack or start a new one.</p>
           <div className="flex gap-3">
             <Button onClick={handleOpen}>Open Pack</Button>
-            <Button variant="outline" onClick={handleOpenCreateDialog}>Create New Pack</Button>
+            <Button variant="outline" onClick={() => { setNewPackName(""); setShowCreateDialog(true) }}>
+              Create New Pack
+            </Button>
           </div>
         </div>
       </div>

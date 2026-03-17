@@ -37,6 +37,43 @@ export class FileSystemService {
     return service
   }
 
+  static async importFolder(
+    dirHandle: FileSystemDirectoryHandle,
+    knownVariants = ["outline", "filled", "duotone"]
+  ): Promise<{ service: FileSystemService; unrecognised: string[] }> {
+    const { parseIconFilenames } = await import("../lib/parse-icon-filenames")
+
+    // Collect all filenames in the folder
+    const filenames: string[] = []
+    for await (const entry of dirHandle.values()) {
+      if (entry.kind === "file") filenames.push(entry.name)
+    }
+
+    const { icons: parsed, unrecognised } = parseIconFilenames(filenames, knownVariants)
+
+    // Group parsed files into IconEntry records
+    const iconMap = new Map<string, IconEntry>()
+    for (const { name, variant, file } of parsed) {
+      const id = name
+      if (!iconMap.has(id)) {
+        iconMap.set(id, { id, name, category: "", tags: [], files: {} })
+      }
+      iconMap.get(id)!.files[variant] = file
+    }
+
+    const manifest: PackManifest = {
+      name: dirHandle.name,
+      version: "1.0.0",
+      gridSize: 24,
+      variants: knownVariants,
+      icons: [...iconMap.values()],
+    }
+
+    const service = new FileSystemService(dirHandle, manifest)
+    await service.writeManifest(manifest)
+    return { service, unrecognised }
+  }
+
   static async openPack(dirHandle: FileSystemDirectoryHandle): Promise<FileSystemService> {
     let fileHandle: FileSystemFileHandle
     try {

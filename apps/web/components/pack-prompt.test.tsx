@@ -1,4 +1,25 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest"
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
+import React from "react"
+
+// @base-ui/react doesn't initialize correctly in jsdom — provide a simple shim
+vi.mock("@workspace/ui/components/button", () => ({
+  Button: ({ children, onClick, disabled, ...rest }: React.ComponentProps<"button">) => (
+    <button onClick={onClick} disabled={disabled} {...rest}>{children}</button>
+  ),
+}))
+vi.mock("@workspace/ui/components/dialog", () => ({
+  Dialog: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  DialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
+  DialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}))
+vi.mock("@workspace/ui/components/input", () => ({
+  Input: (props: React.ComponentProps<"input">) => <input {...props} />,
+}))
+vi.mock("@workspace/ui/components/label", () => ({
+  Label: ({ children, ...props }: React.ComponentProps<"label">) => <label {...props}>{children}</label>,
+}))
 import { render, screen } from "@testing-library/react"
 import { Provider } from "react-redux"
 import { configureStore } from "@reduxjs/toolkit"

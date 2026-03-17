@@ -8,6 +8,8 @@ import type { GridConfig } from "../lib/auto-grid-layout"
 import { CanvasBridge } from "../lib/canvas-bridge"
 import { setActiveIconId, setActiveVariant } from "../store/editor-slice"
 import type { PackState } from "../store/pack-slice"
+import { useDrawTool } from "../hooks/use-draw-tool"
+import { useCanvasShortcuts } from "../hooks/use-canvas-shortcuts"
 
 const GRID_CONFIG: GridConfig = {
   gridSize: 48,
@@ -29,7 +31,10 @@ export function IconCanvas() {
 
   const dispatch = useDispatch<AppDispatch>()
   const packState = useSelector((s: RootState) => s.pack)
-  const { activeIconId, activeVariant } = useSelector((s: RootState) => s.editor)
+  const { activeIconId, activeVariant, activeTool, strokeColor, strokeWidth, fillColor } = useSelector((s: RootState) => s.editor)
+
+  useDrawTool(fabricRef, activeTool, strokeColor, strokeWidth, fillColor)
+  useCanvasShortcuts(fabricRef, dispatch)
 
   // Mount Fabric canvas + CanvasBridge once
   useEffect(() => {
