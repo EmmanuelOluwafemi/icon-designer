@@ -1,4 +1,5 @@
 import { PackPrompt } from "./pack-prompt"
+import { IconCanvas } from "./icon-canvas"
 
 export function EditorLayout() {
   return (
@@ -16,6 +17,7 @@ export function EditorLayout() {
         </aside>
 
         <main className="flex flex-1 overflow-hidden">
+          <IconCanvas />
         </main>
 
         <section role="region" aria-label="Properties" className="flex w-64 shrink-0 flex-col border-l">
