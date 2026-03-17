@@ -56,6 +56,7 @@ docs/                      -- PRD, vision, solution docs
   pnpm dlx shadcn@latest add <component-name> -c apps/web
   ```
   Then import from `@workspace/ui/components/<name>`.
+- **Never use `window.alert()`, `window.confirm()`, or `window.prompt()`** — use a shadcn `<Dialog>` for confirmations and prompts instead.
 
 ## Key Architectural Decisions
 - **Canvas**: Fabric.js (Canvas-based rendering, SVG import/export)

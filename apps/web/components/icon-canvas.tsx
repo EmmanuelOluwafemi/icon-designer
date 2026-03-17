@@ -2,11 +2,12 @@
 
 import { useEffect, useRef } from "react"
 import { useSelector, useDispatch } from "react-redux"
-import { Canvas, Rect, IText, Point } from "fabric"
+import { Canvas, Point } from "fabric"
 import type { RootState, AppDispatch } from "../store"
-import { autoGridLayout } from "../lib/auto-grid-layout"
 import type { GridConfig } from "../lib/auto-grid-layout"
+import { CanvasBridge } from "../lib/canvas-bridge"
 import { setActiveIconId, setActiveVariant } from "../store/editor-slice"
+import type { PackState } from "../store/pack-slice"
 
 const GRID_CONFIG: GridConfig = {
   gridSize: 48,
@@ -15,51 +16,43 @@ const GRID_CONFIG: GridConfig = {
   headerHeight: 56,
 }
 
-const CANVAS_PADDING = 48
-
-const FRAME_FILL = "#18181b"
-const FRAME_STROKE = "#3f3f46"
-const FRAME_STROKE_ACTIVE = "#6366f1"
-const FRAME_STROKE_EMPTY = "#3f3f46"
-const HEADER_COLOR = "#71717a"
-const LABEL_COLOR = "#a1a1aa"
-const LABEL_COLOR_ACTIVE = "#e4e4e7"
 const CANVAS_BG = "#09090b"
-const PLUS_COLOR = "#52525b"
 
 export function IconCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasElRef = useRef<HTMLCanvasElement>(null)
   const fabricRef = useRef<Canvas | null>(null)
+  const bridgeRef = useRef<CanvasBridge | null>(null)
+  const prevStateRef = useRef<PackState | null>(null)
   const isPanning = useRef(false)
   const lastPan = useRef({ x: 0, y: 0 })
 
   const dispatch = useDispatch<AppDispatch>()
-  const { icons, variants, gridSize, isLoaded } = useSelector((s: RootState) => s.pack)
+  const packState = useSelector((s: RootState) => s.pack)
   const { activeIconId, activeVariant } = useSelector((s: RootState) => s.editor)
 
-  // Mount Fabric canvas and keep it sized to the container
+  // Mount Fabric canvas + CanvasBridge once
   useEffect(() => {
     const container = containerRef.current
     const el = canvasElRef.current
     if (!container || !el) return
 
-    const fc = new Canvas(el, {
-      backgroundColor: CANVAS_BG,
-      selection: false,
-    })
+    const fc = new Canvas(el, { backgroundColor: CANVAS_BG, selection: false })
     fabricRef.current = fc
 
-    const resize = () => {
-      fc.setDimensions({ width: container.clientWidth, height: container.clientHeight })
-      fc.renderAll()
-    }
-    resize()
+    const bridge = new CanvasBridge(fc, dispatch)
+    bridgeRef.current = bridge
 
-    const observer = new ResizeObserver(resize)
-    observer.observe(container)
+    // Click on a frame rect to set active icon/variant
+    fc.on("mouse:down:before", (e) => {
+      const target = e.target as { data?: { iconId: string; variant: string } } | null
+      if (target?.data) {
+        dispatch(setActiveIconId(target.data.iconId))
+        dispatch(setActiveVariant(target.data.variant))
+      }
+    })
 
-    // Click on a frame to set active icon/variant
+    // Pan on empty canvas
     fc.on("mouse:down", (e) => {
       if (!e.target) {
         isPanning.current = true
@@ -93,112 +86,43 @@ export function IconCanvas() {
       evt.stopPropagation()
     })
 
+    const resize = () => {
+      fc.setDimensions({ width: container.clientWidth, height: container.clientHeight })
+      fc.renderAll()
+    }
+    resize()
+    const observer = new ResizeObserver(resize)
+    observer.observe(container)
+
     return () => {
       observer.disconnect()
-      fc.dispose()
+      bridge.dispose()
+      bridgeRef.current = null
       fabricRef.current = null
     }
-  }, [])
+  }, [dispatch])
 
-  // Re-render grid whenever pack or editor state changes
+  // Sync Redux pack state → CanvasBridge (incremental)
   useEffect(() => {
-    const fc = fabricRef.current
-    if (!fc) return
+    const bridge = bridgeRef.current
+    if (!bridge) return
 
-    fc.clear()
-    fc.backgroundColor = CANVAS_BG
+    if (!packState.isLoaded || packState.icons.length === 0 || packState.variants.length === 0) return
 
-    if (!isLoaded || icons.length === 0 || variants.length === 0) {
-      fc.renderAll()
-      return
+    const prev = prevStateRef.current
+    if (!prev) {
+      bridge.loadFromState(packState, GRID_CONFIG)
+    } else {
+      bridge.sync(prev, packState, GRID_CONFIG)
     }
+    prevStateRef.current = packState
+  }, [packState])
 
-    const config: GridConfig = { ...GRID_CONFIG, gridSize }
-    const cellSize = gridSize + config.padding
-    const frames = autoGridLayout(icons, variants, config)
-
-    // Variant column headers
-    variants.forEach((variant, col) => {
-      fc.add(new IText(variant, {
-        left: CANVAS_PADDING + col * cellSize + gridSize / 2,
-        top: CANVAS_PADDING + config.headerHeight / 2 - 8,
-        fontSize: 11,
-        fill: HEADER_COLOR,
-        fontFamily: "sans-serif",
-        selectable: false,
-        evented: false,
-        originX: "center",
-      }))
-    })
-
-    // Icon frames + labels
-    for (const frame of frames) {
-      const { x, y, size, iconId, variant } = frame
-      const icon = icons.find((i) => i.id === iconId)
-      const isActive = iconId === activeIconId && variant === activeVariant
-      const isEmpty = !icon?.files[variant]
-
-      // Frame rect — dashed stroke for empty slots
-      const rect = new Rect({
-        left: CANVAS_PADDING + x,
-        top: CANVAS_PADDING + y,
-        width: size,
-        height: size,
-        fill: FRAME_FILL,
-        stroke: isActive ? FRAME_STROKE_ACTIVE : FRAME_STROKE_EMPTY,
-        strokeWidth: isActive ? 2 : 1,
-        strokeDashArray: isEmpty && !isActive ? [4, 4] : undefined,
-        selectable: false,
-        evented: true,
-        rx: 2,
-        ry: 2,
-        data: { iconId, variant },
-      })
-
-      rect.on("mousedown", () => {
-        dispatch(setActiveIconId(iconId))
-        dispatch(setActiveVariant(variant))
-      })
-
-      fc.add(rect)
-
-      // "+" indicator for empty slots — clickable to set active variant
-      if (isEmpty) {
-        const plus = new IText("+", {
-          left: CANVAS_PADDING + x + size / 2,
-          top: CANVAS_PADDING + y + size / 2,
-          fontSize: 18,
-          fill: PLUS_COLOR,
-          fontFamily: "sans-serif",
-          selectable: false,
-          evented: true,
-          originX: "center",
-          originY: "center",
-        })
-        plus.on("mousedown", () => {
-          dispatch(setActiveIconId(iconId))
-          dispatch(setActiveVariant(variant))
-        })
-        fc.add(plus)
-      }
-
-      // Icon name label (only once per row, on the first variant column)
-      if (variant === variants[0] && icon) {
-        fc.add(new IText(icon.name, {
-          left: CANVAS_PADDING + x + size / 2,
-          top: CANVAS_PADDING + y + size + 6,
-          fontSize: 10,
-          fill: isActive ? LABEL_COLOR_ACTIVE : LABEL_COLOR,
-          fontFamily: "sans-serif",
-          selectable: false,
-          evented: false,
-          originX: "center",
-        }))
-      }
-    }
-
-    fc.renderAll()
-  }, [icons, variants, gridSize, isLoaded, activeIconId, activeVariant, dispatch])
+  // Update active frame highlight whenever selection changes
+  useEffect(() => {
+    bridgeRef.current?.setActiveFrame(activeIconId, activeVariant)
+    fabricRef.current?.renderAll()
+  }, [activeIconId, activeVariant])
 
   return (
     <div ref={containerRef} className="relative h-full w-full overflow-hidden cursor-grab active:cursor-grabbing">

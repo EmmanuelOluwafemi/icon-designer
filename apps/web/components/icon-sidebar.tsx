@@ -27,6 +27,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@workspace/ui/components/dialog"
 import type { RootState, AppDispatch } from "../store"
 import { addIcon, removeIcon, duplicateIcon, renameIcon, reorderIcons, updateIconMeta } from "../store/pack-slice"
 import { setActiveIconId, setActiveVariant } from "../store/editor-slice"
@@ -250,6 +258,7 @@ export function IconSidebar() {
   const { icons, variants, isLoaded } = useSelector((s: RootState) => s.pack)
   const { activeIconId } = useSelector((s: RootState) => s.editor)
   const [search, setSearch] = useState("")
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
@@ -275,8 +284,13 @@ export function IconSidebar() {
   }
 
   function handleDelete(id: string) {
-    const name = icons.find((i) => i.id === id)?.name
-    if (confirm(`Delete icon "${name}"?`)) dispatch(removeIcon(id))
+    const name = icons.find((i) => i.id === id)?.name ?? "Untitled"
+    setDeleteTarget({ id, name })
+  }
+
+  function confirmDelete() {
+    if (deleteTarget) dispatch(removeIcon(deleteTarget.id))
+    setDeleteTarget(null)
   }
 
   function handleAddVariant(iconId: string, variant: string) {
@@ -333,6 +347,21 @@ export function IconSidebar() {
           </DndContext>
         </div>
       </ScrollArea>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Icon</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete &ldquo;{deleteTarget?.name}&rdquo;? This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDelete}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
