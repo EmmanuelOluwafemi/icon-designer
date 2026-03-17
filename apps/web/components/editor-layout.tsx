@@ -1,5 +1,6 @@
 import { PackPrompt } from "./pack-prompt"
 import { IconCanvas } from "./icon-canvas"
+import { IconSidebar } from "./icon-sidebar"
 
 export function EditorLayout() {
   return (
@@ -14,6 +15,7 @@ export function EditorLayout() {
         </nav>
 
         <aside role="complementary" aria-label="Icons" className="flex w-60 shrink-0 flex-col border-r">
+          <IconSidebar />
         </aside>
 
         <main className="flex flex-1 overflow-hidden">

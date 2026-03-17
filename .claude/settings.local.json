@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(cd:*)",
-      "Bash(pnpm test:*)"
+      "Bash(pnpm test:*)",
+      "Bash(gh issue:*)",
+      "Bash(npx vitest:*)",
+      "Bash(pnpm typecheck:*)"
     ]
   },
   "hooks": {
@@ -12,8 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pnpm run lint && pnpm test",
-            "description": "Run lint and tests before any git commit"
+            "command": "pnpm run lint && pnpm test"
           }
         ]
       }
@@ -24,8 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'File written: $CLAUDE_FILE_PATH'",
-            "description": "Log when Claude writes a file"
+            "command": "echo 'File written: $CLAUDE_FILE_PATH'"
           }
         ]
       }

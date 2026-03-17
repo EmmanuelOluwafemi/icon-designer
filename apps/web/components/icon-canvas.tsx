@@ -1,11 +1,12 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { useSelector } from "react-redux"
+import { useSelector, useDispatch } from "react-redux"
 import { Canvas, Rect, IText, Point } from "fabric"
-import type { RootState } from "../store"
+import type { RootState, AppDispatch } from "../store"
 import { autoGridLayout } from "../lib/auto-grid-layout"
 import type { GridConfig } from "../lib/auto-grid-layout"
+import { setActiveIconId, setActiveVariant } from "../store/editor-slice"
 
 const GRID_CONFIG: GridConfig = {
   gridSize: 48,
@@ -14,25 +15,28 @@ const GRID_CONFIG: GridConfig = {
   headerHeight: 56,
 }
 
-// Padding between canvas edge and the grid content
 const CANVAS_PADDING = 48
 
 const FRAME_FILL = "#18181b"
 const FRAME_STROKE = "#3f3f46"
+const FRAME_STROKE_ACTIVE = "#6366f1"
+const FRAME_STROKE_EMPTY = "#3f3f46"
 const HEADER_COLOR = "#71717a"
 const LABEL_COLOR = "#a1a1aa"
+const LABEL_COLOR_ACTIVE = "#e4e4e7"
 const CANVAS_BG = "#09090b"
+const PLUS_COLOR = "#52525b"
 
 export function IconCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasElRef = useRef<HTMLCanvasElement>(null)
   const fabricRef = useRef<Canvas | null>(null)
-
-  // Track pan state
   const isPanning = useRef(false)
   const lastPan = useRef({ x: 0, y: 0 })
 
+  const dispatch = useDispatch<AppDispatch>()
   const { icons, variants, gridSize, isLoaded } = useSelector((s: RootState) => s.pack)
+  const { activeIconId, activeVariant } = useSelector((s: RootState) => s.editor)
 
   // Mount Fabric canvas and keep it sized to the container
   useEffect(() => {
@@ -46,12 +50,8 @@ export function IconCanvas() {
     })
     fabricRef.current = fc
 
-    // Size canvas to container
     const resize = () => {
-      fc.setDimensions({
-        width: container.clientWidth,
-        height: container.clientHeight,
-      })
+      fc.setDimensions({ width: container.clientWidth, height: container.clientHeight })
       fc.renderAll()
     }
     resize()
@@ -59,13 +59,14 @@ export function IconCanvas() {
     const observer = new ResizeObserver(resize)
     observer.observe(container)
 
-    // Pan: drag on empty canvas area
+    // Click on a frame to set active icon/variant
     fc.on("mouse:down", (e) => {
-      if (e.target) return // don't pan when clicking an object
-      isPanning.current = true
-      const evt = e.e as MouseEvent
-      lastPan.current = { x: evt.clientX, y: evt.clientY }
-      fc.setCursor("grabbing")
+      if (!e.target) {
+        isPanning.current = true
+        const evt = e.e as MouseEvent
+        lastPan.current = { x: evt.clientX, y: evt.clientY }
+        fc.setCursor("grabbing")
+      }
     })
 
     fc.on("mouse:move", (e) => {
@@ -82,12 +83,10 @@ export function IconCanvas() {
       fc.setCursor("default")
     })
 
-    // Zoom with mouse wheel
     fc.on("mouse:wheel", (e) => {
       const evt = e.e as WheelEvent
-      const delta = evt.deltaY
       let zoom = fc.getZoom()
-      zoom *= 0.999 ** delta
+      zoom *= 0.999 ** evt.deltaY
       zoom = Math.min(Math.max(zoom, 0.1), 5)
       fc.zoomToPoint(new Point(evt.offsetX, evt.offsetY), zoom)
       evt.preventDefault()
@@ -101,7 +100,7 @@ export function IconCanvas() {
     }
   }, [])
 
-  // Re-render grid whenever pack state changes
+  // Re-render grid whenever pack or editor state changes
   useEffect(() => {
     const fc = fabricRef.current
     if (!fc) return
@@ -120,7 +119,7 @@ export function IconCanvas() {
 
     // Variant column headers
     variants.forEach((variant, col) => {
-      const headerText = new IText(variant, {
+      fc.add(new IText(variant, {
         left: CANVAS_PADDING + col * cellSize + gridSize / 2,
         top: CANVAS_PADDING + config.headerHeight / 2 - 8,
         fontSize: 11,
@@ -129,48 +128,77 @@ export function IconCanvas() {
         selectable: false,
         evented: false,
         originX: "center",
-      })
-      fc.add(headerText)
+      }))
     })
 
     // Icon frames + labels
     for (const frame of frames) {
       const { x, y, size, iconId, variant } = frame
+      const icon = icons.find((i) => i.id === iconId)
+      const isActive = iconId === activeIconId && variant === activeVariant
+      const isEmpty = !icon?.files[variant]
 
+      // Frame rect — dashed stroke for empty slots
       const rect = new Rect({
         left: CANVAS_PADDING + x,
         top: CANVAS_PADDING + y,
         width: size,
         height: size,
         fill: FRAME_FILL,
-        stroke: FRAME_STROKE,
-        strokeWidth: 1,
+        stroke: isActive ? FRAME_STROKE_ACTIVE : FRAME_STROKE_EMPTY,
+        strokeWidth: isActive ? 2 : 1,
+        strokeDashArray: isEmpty && !isActive ? [4, 4] : undefined,
         selectable: false,
-        evented: false,
+        evented: true,
         rx: 2,
         ry: 2,
         data: { iconId, variant },
       })
+
+      rect.on("mousedown", () => {
+        dispatch(setActiveIconId(iconId))
+        dispatch(setActiveVariant(variant))
+      })
+
       fc.add(rect)
 
-      const icon = icons.find((i) => i.id === iconId)
-      if (icon) {
-        const label = new IText(icon.name, {
+      // "+" indicator for empty slots — clickable to set active variant
+      if (isEmpty) {
+        const plus = new IText("+", {
+          left: CANVAS_PADDING + x + size / 2,
+          top: CANVAS_PADDING + y + size / 2,
+          fontSize: 18,
+          fill: PLUS_COLOR,
+          fontFamily: "sans-serif",
+          selectable: false,
+          evented: true,
+          originX: "center",
+          originY: "center",
+        })
+        plus.on("mousedown", () => {
+          dispatch(setActiveIconId(iconId))
+          dispatch(setActiveVariant(variant))
+        })
+        fc.add(plus)
+      }
+
+      // Icon name label (only once per row, on the first variant column)
+      if (variant === variants[0] && icon) {
+        fc.add(new IText(icon.name, {
           left: CANVAS_PADDING + x + size / 2,
           top: CANVAS_PADDING + y + size + 6,
           fontSize: 10,
-          fill: LABEL_COLOR,
+          fill: isActive ? LABEL_COLOR_ACTIVE : LABEL_COLOR,
           fontFamily: "sans-serif",
           selectable: false,
           evented: false,
           originX: "center",
-        })
-        fc.add(label)
+        }))
       }
     }
 
     fc.renderAll()
-  }, [icons, variants, gridSize, isLoaded])
+  }, [icons, variants, gridSize, isLoaded, activeIconId, activeVariant, dispatch])
 
   return (
     <div ref={containerRef} className="relative h-full w-full overflow-hidden cursor-grab active:cursor-grabbing">

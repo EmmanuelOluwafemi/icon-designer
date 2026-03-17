@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { configureStore } from "@reduxjs/toolkit"
-import packReducer, { loadPack, addIcon, removeIcon } from "./pack-slice"
+import packReducer, { loadPack, addIcon, removeIcon, renameIcon, reorderIcons, duplicateIcon, updateIconMeta } from "./pack-slice"
 import type { Icon } from "./pack-slice"
 
 function makeStore() {
@@ -12,6 +12,14 @@ const testIcon: Icon = {
   name: "Home",
   category: "navigation",
   tags: ["house"],
+  files: { outline: "home.svg" },
+}
+
+const starIcon: Icon = {
+  id: "star",
+  name: "Star",
+  category: "misc",
+  tags: [],
   files: {},
 }
 
@@ -69,6 +77,64 @@ describe("packSlice", () => {
     const store = makeStore()
     store.dispatch(addIcon(testIcon))
     store.dispatch(removeIcon("nonexistent"))
+    expect(store.getState().pack.icons).toHaveLength(1)
+  })
+
+  it("renameIcon updates the icon name", () => {
+    const store = makeStore()
+    store.dispatch(addIcon(testIcon))
+    store.dispatch(renameIcon({ id: "home", name: "House" }))
+    expect(store.getState().pack.icons[0]?.name).toBe("House")
+  })
+
+  it("renameIcon is a no-op for unknown id", () => {
+    const store = makeStore()
+    store.dispatch(addIcon(testIcon))
+    store.dispatch(renameIcon({ id: "unknown", name: "X" }))
+    expect(store.getState().pack.icons[0]?.name).toBe("Home")
+  })
+
+  it("reorderIcons reorders by new id array", () => {
+    const store = makeStore()
+    store.dispatch(addIcon(testIcon))
+    store.dispatch(addIcon(starIcon))
+    store.dispatch(reorderIcons(["star", "home"]))
+    const icons = store.getState().pack.icons
+    expect(icons[0]?.id).toBe("star")
+    expect(icons[1]?.id).toBe("home")
+  })
+
+  it("duplicateIcon creates a copy with a new id", () => {
+    const store = makeStore()
+    store.dispatch(addIcon(testIcon))
+    store.dispatch(duplicateIcon("home"))
+    const icons = store.getState().pack.icons
+    expect(icons).toHaveLength(2)
+    expect(icons[1]?.name).toBe("Home copy")
+    expect(icons[1]?.id).not.toBe("home")
+    expect(icons[1]?.files).toEqual(testIcon.files)
+  })
+
+  it("updateIconMeta updates category and tags", () => {
+    const store = makeStore()
+    store.dispatch(addIcon(testIcon))
+    store.dispatch(updateIconMeta({ id: "home", category: "ui", tags: ["web", "app"] }))
+    const icon = store.getState().pack.icons[0]
+    expect(icon?.category).toBe("ui")
+    expect(icon?.tags).toEqual(["web", "app"])
+  })
+
+  it("updateIconMeta is a no-op for unknown id", () => {
+    const store = makeStore()
+    store.dispatch(addIcon(testIcon))
+    store.dispatch(updateIconMeta({ id: "unknown", category: "ui" }))
+    expect(store.getState().pack.icons[0]?.category).toBe("navigation")
+  })
+
+  it("duplicateIcon is a no-op for unknown id", () => {
+    const store = makeStore()
+    store.dispatch(addIcon(testIcon))
+    store.dispatch(duplicateIcon("unknown"))
     expect(store.getState().pack.icons).toHaveLength(1)
   })
 })
