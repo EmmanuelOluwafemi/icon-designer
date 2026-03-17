@@ -46,6 +46,17 @@ docs/                      -- PRD, vision, solution docs
 - Never read or write files directly — always go through `FileSystemService`
 - Tests verify observable behavior through public interfaces, not implementation details
 
+## UI Components
+- **Always use shadcn/ui components** for all UI elements — buttons, inputs, dialogs, labels, etc.
+- Only hand-roll a component if no suitable shadcn primitive exists for it (e.g. the Fabric.js canvas itself).
+- shadcn components live in `packages/ui/src/components/` and are imported as `@workspace/ui/components/<name>`.
+- **Before using a component**, check `packages/ui/src/components/` to confirm it is installed.
+- **If a needed component is not installed**, install it first by running (from the monorepo root):
+  ```bash
+  pnpm dlx shadcn@latest add <component-name> -c apps/web
+  ```
+  Then import from `@workspace/ui/components/<name>`.
+
 ## Key Architectural Decisions
 - **Canvas**: Fabric.js (Canvas-based rendering, SVG import/export)
 - **Data format**: Flat folder of SVGs + `icon-builder.json` manifest (local-first)

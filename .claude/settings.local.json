@@ -4,5 +4,31 @@
       "Bash(cd:*)",
       "Bash(pnpm test:*)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash(git commit)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pnpm run lint && pnpm test",
+            "description": "Run lint and tests before any git commit"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'File written: $CLAUDE_FILE_PATH'",
+            "description": "Log when Claude writes a file"
+          }
+        ]
+      }
+    ]
   }
 }

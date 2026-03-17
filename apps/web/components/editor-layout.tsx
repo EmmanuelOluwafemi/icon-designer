@@ -1,6 +1,9 @@
+import { PackPrompt } from "./pack-prompt"
+
 export function EditorLayout() {
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
+    <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
+      <PackPrompt />
       <header role="banner" className="flex h-12 shrink-0 items-center border-b px-4">
         <span className="text-sm font-medium">Icon Builder</span>
       </header>

@@ -1,6 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit"
 
 export interface PackState {
+  isLoaded: boolean
   name: string
   gridSize: number
   variants: string[]
@@ -8,6 +9,7 @@ export interface PackState {
 }
 
 const initialState: PackState = {
+  isLoaded: false,
   name: "",
   gridSize: 24,
   variants: [],
@@ -17,7 +19,13 @@ const initialState: PackState = {
 const packSlice = createSlice({
   name: "pack",
   initialState,
-  reducers: {},
+  reducers: {
+    loadPack(state, action: { payload: Omit<PackState, "isLoaded"> }) {
+      return { ...action.payload, isLoaded: true }
+    },
+  },
 })
+
+export const { loadPack } = packSlice.actions
 
 export default packSlice.reducer

@@ -10,6 +10,7 @@ describe("packSlice", () => {
   it("has correct initial state", () => {
     const store = makeStore()
     expect(store.getState().pack).toEqual({
+      isLoaded: false,
       name: "",
       gridSize: 24,
       variants: [],
